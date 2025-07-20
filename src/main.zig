@@ -5,12 +5,17 @@ const rl = @cImport({
     @cInclude("raylib.h");
 });
 
-/// global constants
+/// global variables
 const window_width = 600;
 const window_height = 600;
 const framerate = 60;
-/// global variables
 var frame: usize = 0;
+
+/// GIF generation variables
+const generate_gif = false;
+var screenshot_counter: usize = 0;
+const gif_framerate = 30;
+const gif_duration = 10;
 
 /// returns the highest element of a float array
 fn highestValue(values: []f32) f32 {
@@ -140,14 +145,17 @@ const HeatMap = struct {
     /// for each pixel, normalize the distance values
     fn calculateNormalized(self: *HeatMap) void {
         normalizeSlice(self.normalization_values);
+        var index_of_farthest: usize = undefined;
         for (0..self.normalization_values.len) |i| {
             if (self.normalization_values[i] == 1.0) {
-                self.farthest_point = Vector{
-                    .x = @floatFromInt(i % self.width),
-                    .y = @floatFromInt(i / self.width),
-                };
+                index_of_farthest = i;
+                break;
             }
         }
+        self.farthest_point = Vector{
+            .x = @floatFromInt(index_of_farthest % self.width),
+            .y = @floatFromInt(index_of_farthest / self.width),
+        };
     }
 
     /// helper for generating the first texture
@@ -236,6 +244,16 @@ pub fn main() void {
         }
         heatmap.update(&particles);
         renderFrame(&heatmap, &particles);
+
+        if (generate_gif) {
+            const screenshot_delay = framerate / gif_framerate;
+            if ((frame < (framerate * gif_duration)) and (frame % screenshot_delay == 0)) {
+                var buffer: [256]u8 = undefined;
+                const filename = std.fmt.bufPrint(&buffer, "frame_{:0>4}.png\x00", .{screenshot_counter}) catch unreachable;
+                rl.TakeScreenshot(filename.ptr);
+                screenshot_counter += 1;
+            }
+        }
     }
 }
 

@@ -1,3 +1,7 @@
+# zig files
 .zig-cache/
 zig-out/
 *.o
+
+# gif generation files
+*.png
