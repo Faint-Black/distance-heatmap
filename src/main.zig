@@ -1,5 +1,6 @@
 const std = @import("std");
 const options = @import("build_options");
+const Vector = @import("vector.zig").Vector;
 const rl = @cImport({
     @cInclude("raylib.h");
 });
@@ -8,10 +9,10 @@ const rl = @cImport({
 const window_width = 600;
 const window_height = 600;
 const framerate = 60;
-
 /// global variables
 var frame: usize = 0;
 
+/// returns the highest element of a float array
 fn highestValue(values: []f32) f32 {
     var highest = values[0];
     for (values) |n| {
@@ -21,6 +22,17 @@ fn highestValue(values: []f32) f32 {
     return highest;
 }
 
+/// returns the lowest element of a float array
+fn lowestValue(values: []f32) f32 {
+    var lowest = values[0];
+    for (values) |n| {
+        if (n < lowest)
+            lowest = n;
+    }
+    return lowest;
+}
+
+/// divides each element with the highest number
 fn normalizeSlice(values: []f32) void {
     const highest = highestValue(values);
     for (0..values.len) |i| {
@@ -28,43 +40,25 @@ fn normalizeSlice(values: []f32) void {
     }
 }
 
-const Vector = struct {
-    x: f32,
-    y: f32,
+const Particle = struct {
+    position: Vector,
+    velocity: Vector,
 
-    fn add(a: Vector, b: Vector) Vector {
-        return Vector{
-            .x = a.x + b.x,
-            .y = a.y + b.y,
-        };
+    pub fn update(self: *Particle) void {
+        if (self.position.x < 0.0 or self.position.x > window_width)
+            self.velocity.x *= -1;
+        if (self.position.y < 0.0 or self.position.y > window_height)
+            self.velocity.y *= -1;
+
+        self.position.x += self.velocity.x;
+        self.position.y += self.velocity.y;
     }
 
-    fn scale(self: Vector, scalar: f32) Vector {
-        return Vector{
-            .x = self.x * scalar,
-            .y = self.y * scalar,
-        };
-    }
-
-    fn dot(a: Vector, b: Vector) f32 {
-        return (a.x * b.x) + (a.y * b.y);
-    }
-
-    fn cross(a: Vector, b: Vector) f32 {
-        return (a.x * b.y) - (a.y * b.x);
-    }
-
-    fn magnitude(self: Vector) f32 {
-        const x2 = self.x * self.x;
-        const y2 = self.y * self.y;
-        return std.math.sqrt(x2 + y2);
-    }
-
-    fn fromPoints(a: Vector, b: Vector) Vector {
-        return Vector{
-            .x = b.x - a.x,
-            .y = b.y - a.y,
-        };
+    pub fn render(self: Particle) void {
+        const x: i32 = @intFromFloat(self.position.x);
+        const y: i32 = @intFromFloat(self.position.y);
+        rl.DrawCircle(x, y, 10, rl.BLACK);
+        rl.DrawCircle(x, y, 7, rl.BLUE);
     }
 };
 
@@ -77,6 +71,7 @@ const HeatMap = struct {
     /// drawing related variables
     pixels: []rl.Color,
     texture: rl.Texture2D,
+    farthest_point: Vector,
 
     pub fn init(allocator: std.mem.Allocator, w: usize, h: usize) HeatMap {
         const total_pixels = w * h;
@@ -88,6 +83,7 @@ const HeatMap = struct {
             .normalization_values = normalization_values,
             .pixels = pixels,
             .texture = undefined,
+            .farthest_point = Vector{ .x = 0, .y = 0 },
         };
     }
 
@@ -106,15 +102,22 @@ const HeatMap = struct {
             rl.UpdateTexture(self.texture, self.pixels.ptr);
         }
         rl.DrawTexture(self.texture, 0, 0, rl.WHITE);
+
+        const farthest_point_pos = rl.Vector2{
+            .x = self.farthest_point.x,
+            .y = self.farthest_point.y,
+        };
+        rl.DrawCircleV(farthest_point_pos, 10.0, rl.PINK);
     }
 
-    pub fn update(self: HeatMap, particle: Vector) void {
-        self.calculateUnormalized(particle);
+    pub fn update(self: *HeatMap, particles: []Particle) void {
+        self.calculateUnormalized(particles);
         self.calculateNormalized();
         self.updatePixels();
     }
 
-    fn calculateUnormalized(self: HeatMap, particle: Vector) void {
+    /// for each pixel, calculate the distance to the closest particle
+    fn calculateUnormalized(self: HeatMap, particles: []Particle) void {
         for (0..self.height) |y| {
             for (0..self.width) |x| {
                 const i = x + y * self.width;
@@ -122,15 +125,32 @@ const HeatMap = struct {
                     .x = @floatFromInt(x),
                     .y = @floatFromInt(y),
                 };
-                self.normalization_values[i] = Vector.fromPoints(pixel_pos, particle).magnitude();
+                var closest_distance: f32 = std.math.floatMax(f32);
+                for (particles) |p| {
+                    const distance = Vector.fromPoints(pixel_pos, p.position);
+                    const distance_len = distance.magnitude();
+                    if (distance_len < closest_distance)
+                        closest_distance = distance_len;
+                }
+                self.normalization_values[i] = closest_distance;
             }
         }
     }
 
-    fn calculateNormalized(self: HeatMap) void {
+    /// for each pixel, normalize the distance values
+    fn calculateNormalized(self: *HeatMap) void {
         normalizeSlice(self.normalization_values);
+        for (0..self.normalization_values.len) |i| {
+            if (self.normalization_values[i] == 1.0) {
+                self.farthest_point = Vector{
+                    .x = @floatFromInt(i % self.width),
+                    .y = @floatFromInt(i / self.width),
+                };
+            }
+        }
     }
 
+    /// helper for generating the first texture
     fn generateImage(self: HeatMap) rl.Image {
         return rl.Image{
             .data = self.pixels.ptr,
@@ -141,6 +161,7 @@ const HeatMap = struct {
         };
     }
 
+    /// turns the normalized values into a grayscale image
     fn updatePixels(self: HeatMap) void {
         for (0..self.pixels.len) |i| {
             const normal: f32 = self.normalization_values[i] * 255;
@@ -155,18 +176,12 @@ const HeatMap = struct {
     }
 };
 
-fn renderFrame(heatmap: *HeatMap, particles: []const Vector) void {
+fn renderFrame(heatmap: *HeatMap, particles: []Particle) void {
     rl.BeginDrawing();
     rl.ClearBackground(rl.BLACK);
 
     heatmap.render();
-
-    for (particles) |p| {
-        const x: i32 = @intFromFloat(p.x);
-        const y: i32 = @intFromFloat(p.y);
-        rl.DrawCircle(x, y, 10, rl.BLACK);
-        rl.DrawCircle(x, y, 7, rl.BLUE);
-    }
+    for (particles) |p| p.render();
 
     rl.EndDrawing();
     frame += 1;
@@ -181,23 +196,56 @@ pub fn main() void {
     var heatmap = HeatMap.init(allocator, window_width, window_height);
     defer heatmap.deinit(allocator);
 
-    const particles = [_]Vector{
-        Vector{ .x = 200, .y = 200 },
+    var particles = [_]Particle{
+        Particle{
+            .position = .{ .x = 200, .y = 200 },
+            .velocity = .{ .x = 3, .y = 1 },
+        },
+        Particle{
+            .position = .{ .x = 500, .y = 200 },
+            .velocity = .{ .x = 1, .y = 5 },
+        },
+        Particle{
+            .position = .{ .x = 0, .y = 0 },
+            .velocity = .{ .x = 4, .y = 4 },
+        },
+        Particle{
+            .position = .{ .x = 0, .y = 0 },
+            .velocity = .{ .x = 0, .y = 0 },
+        },
+        Particle{
+            .position = .{ .x = window_width, .y = 0 },
+            .velocity = .{ .x = 0, .y = 0 },
+        },
+        Particle{
+            .position = .{ .x = window_width, .y = window_height },
+            .velocity = .{ .x = 0, .y = 0 },
+        },
+        Particle{
+            .position = .{ .x = 0, .y = window_height },
+            .velocity = .{ .x = 0, .y = 0 },
+        },
     };
 
     rl.SetTraceLogLevel(rl.LOG_ERROR);
     rl.SetTargetFPS(framerate);
     rl.InitWindow(window_width, window_height, "Distance Heatmap");
     while (!rl.WindowShouldClose()) {
-        heatmap.update(particles[0]);
+        for (&particles) |*p| {
+            p.update();
+        }
+        heatmap.update(&particles);
         renderFrame(&heatmap, &particles);
     }
 }
 
 test "normalization" {
-    var float_array = [_]f32{ 0, 3, 1, 6, 9, 10, 2 };
-    const expected_normalization = [_]f32{ 0, 0.3, 0.1, 0.6, 0.9, 1, 0.2 };
+    var float_array = [_]f32{ 7, 3, 1, 6, 9, 10, 2 };
+
     try std.testing.expectEqual(10.0, highestValue(&float_array));
+    try std.testing.expectEqual(1.0, lowestValue(&float_array));
+
     normalizeSlice(&float_array);
+    const expected_normalization = [_]f32{ 0.7, 0.3, 0.1, 0.6, 0.9, 1, 0.2 };
     try std.testing.expectEqualSlices(f32, &expected_normalization, &float_array);
 }
