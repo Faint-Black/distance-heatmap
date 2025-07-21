@@ -13,6 +13,10 @@ pub fn build(b: *std.Build) void {
     const main_filepath = src_filepath ++ "main.zig";
     const tests_filepath = src_filepath ++ "tests.zig";
 
+    // "-Dgenerate_gif=[true/false]"
+    const generate_gif = b.option(bool, "generate_gif", "Generate the sceenshots for the Demo gif.") orelse false;
+    options.addOption(bool, "generate_gif", generate_gif);
+
     // add executable
     const exe = b.addExecutable(.{
         .name = "heatmap",

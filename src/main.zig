@@ -12,9 +12,8 @@ const framerate = 60;
 var frame: usize = 0;
 
 /// GIF generation variables
-const generate_gif = false;
 var screenshot_counter: usize = 0;
-const gif_framerate = 30;
+const gif_framerate = 10;
 const gif_duration = 10;
 
 /// returns the highest element of a float array
@@ -245,9 +244,9 @@ pub fn main() void {
         heatmap.update(&particles);
         renderFrame(&heatmap, &particles);
 
-        if (generate_gif) {
+        if (options.generate_gif) {
             const screenshot_delay = framerate / gif_framerate;
-            if ((frame < (framerate * gif_duration)) and (frame % screenshot_delay == 0)) {
+            if ((frame <= (framerate * gif_duration)) and (frame % screenshot_delay == 0)) {
                 var buffer: [256]u8 = undefined;
                 const filename = std.fmt.bufPrint(&buffer, "frame_{:0>4}.png\x00", .{screenshot_counter}) catch unreachable;
                 rl.TakeScreenshot(filename.ptr);
