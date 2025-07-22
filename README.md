@@ -8,5 +8,5 @@ As shown in pink is the absolute farthest point from all other particles at a gi
 ## Build and Run
 To build and run, use:
 ```sh
-zig build run --release=fast
+zig build run
 ```

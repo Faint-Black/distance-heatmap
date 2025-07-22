@@ -111,7 +111,7 @@ const HeatMap = struct {
             .x = self.farthest_point.x,
             .y = self.farthest_point.y,
         };
-        rl.DrawCircleV(farthest_point_pos, 10.0, rl.PINK);
+        rl.DrawCircleV(farthest_point_pos, 8.0, rl.PINK);
     }
 
     pub fn update(self: *HeatMap, particles: []Particle) void {

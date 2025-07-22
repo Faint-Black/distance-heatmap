@@ -5,9 +5,7 @@ pub fn build(b: *std.Build) void {
     Ensure_Zig_Version() catch @panic("Zig 0.14.0 is required for compilation!");
 
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
     const options = b.addOptions();
-    const use_llvm = if (optimize == .Debug) false else true;
 
     const src_filepath = "src/";
     const main_filepath = src_filepath ++ "main.zig";
@@ -23,9 +21,9 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path(main_filepath),
             .target = target,
-            .optimize = optimize,
+            .optimize = .ReleaseFast,
         }),
-        .use_llvm = use_llvm,
+        .use_llvm = true,
     });
     exe.root_module.addOptions("build_options", options);
     exe.linkSystemLibrary("raylib");
