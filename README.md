@@ -6,7 +6,7 @@ Visualization of the farthest locations from all points, calculated pixel-by-pix
 The dot shown in pink is the absolute farthest point from all other particles at a given moment.
 
 ## Dependencies
-* Zig 0.14.0
+* Zig 0.15.1
 * Raylib 5.5
 
 ## Build and Run

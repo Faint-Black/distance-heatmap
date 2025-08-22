@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
-    Ensure_Zig_Version() catch @panic("Zig 0.14.0 is required for compilation!");
+    Ensure_Zig_Version() catch @panic("Zig 0.15.1 is required for compilation!");
 
     const target = b.standardTargetOptions(.{});
     const options = b.addOptions();
@@ -31,7 +31,12 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
 
     // unit testing
-    const added_tests = b.addTest(.{ .root_source_file = b.path(tests_filepath) });
+    const added_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path(tests_filepath),
+            .target = target,
+        }),
+    });
     const performStep_test = b.addRunArtifact(added_tests);
     b.default_step.dependOn(&performStep_test.step);
 
@@ -48,13 +53,13 @@ pub fn build(b: *std.Build) void {
     b.default_step.dependOn(&performStep_format.step);
 }
 
-/// Requires exactly Zig 0.14.0
+/// Requires exactly Zig 0.15.1
 pub fn Ensure_Zig_Version() !void {
     const current_version = builtin.zig_version;
     const required_version = std.SemanticVersion{
         .major = 0,
-        .minor = 14,
-        .patch = 0,
+        .minor = 15,
+        .patch = 1,
         .build = null,
         .pre = null,
     };
