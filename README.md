@@ -1,7 +1,9 @@
 # Distance heatmap
 Visualization of the farthest locations from all points, calculated pixel-by-pixel and displayed in a variety of color schemes.
 
-![Demo](ffmpeg/demo.gif)
+<p align=center>
+  <img src="./ffmpeg/demo.gif">
+</p>
 
 The dot shown in pink is the absolute farthest point from all other particles at a given moment.
 
