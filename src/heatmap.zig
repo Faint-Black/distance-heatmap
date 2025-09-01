@@ -156,13 +156,7 @@ pub const HeatMap = struct {
     /// for each pixel, normalize the distance values
     fn calculateNormalized(self: *HeatMap) void {
         normalizeSlice(self.normalization_values);
-        var index_of_farthest: usize = undefined;
-        for (0..self.normalization_values.len) |i| {
-            if (self.normalization_values[i] == 1.0) {
-                index_of_farthest = i;
-                break;
-            }
-        }
+        const index_of_farthest: usize = std.mem.indexOfMax(f32, self.normalization_values);
         self.farthest_point = Vector{
             .x = @floatFromInt(index_of_farthest % self.width),
             .y = @floatFromInt(index_of_farthest / self.width),
@@ -183,12 +177,12 @@ pub const HeatMap = struct {
     /// turns the normalized values into a colorful image
     fn updatePixels(self: HeatMap) void {
         for (0..self.pixels.len) |i| {
-            // farthest point = 255
-            // closest point = 0
+            // farthest point value = 255
+            // closest point value = 0
             const normal_float: f32 = self.normalization_values[i] * 255;
             const normal_byte: u8 = @as(u8, @intFromFloat(normal_float));
             const normal_byte_complement: u8 = 255 - normal_byte;
-            const color = switch (self.colorscheme) {
+            self.pixels[i] = switch (self.colorscheme) {
                 .black_and_white => rl.Color{
                     .r = normal_byte_complement,
                     .g = normal_byte_complement,
@@ -214,29 +208,18 @@ pub const HeatMap = struct {
                     .a = 255,
                 },
             };
-            self.pixels[i] = color;
         }
     }
 };
 
 /// returns the highest element of a float array
 fn highestValue(values: []f32) f32 {
-    var highest = values[0];
-    for (values) |n| {
-        if (n > highest)
-            highest = n;
-    }
-    return highest;
+    return std.mem.max(f32, values);
 }
 
 /// returns the lowest element of a float array
 fn lowestValue(values: []f32) f32 {
-    var lowest = values[0];
-    for (values) |n| {
-        if (n < lowest)
-            lowest = n;
-    }
-    return lowest;
+    return std.mem.min(f32, values);
 }
 
 /// divides each element with the highest number
